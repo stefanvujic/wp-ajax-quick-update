@@ -1,0 +1,223 @@
+(function($){
+    // Convert WordPress pagination into a dropdown pagination
+    var current_page = $('.quick-update-pagination > span').html();
+    $('#quick_update_pagination').html('<option selected="selected">' + current_page + '</option>');
+    $('.quick-update-pagination > a').each(function(){
+        var url = $(this).attr('href');
+        var page_number = $(this).html();
+        if(page_number !== '« Previous' && page_number !== 'Next »'){
+            $('#quick_update_pagination').append('<option class="pagination-page" value="' + url + '">' + page_number + '</option>');
+        }
+    });
+
+    if($('#quick_update_pagination > option[selected=selected]').html() == 'undefined'){
+        $('#quick_update_pagination').hide();
+    }
+
+    // Redirect user when page is selected from pagination dropdown
+    $('#quick_update_pagination').change(function(){
+        var url = $('.url-pagination').html();
+        var search = $('.search-pagination').html();
+        var results = $('.results-pagination').html();
+        if(search !== ''){
+            var pagination_url = $(this).attr('value').replace(url, '').replace('#038;search_q=' + search, '').replace('&search_q=' + search, '').replace('&results=' + results, '');
+        }else{
+            var pagination_url = $(this).attr('value').replace(url, '').replace('#038;search_q', '').replace('&results=' + results, '');
+        }
+         //var pagination_url = $(this).attr('value');
+        pagination_url = pagination_url.concat('&search_q=' + search);
+        //alert   (pagination_url);
+        window.location.assign(pagination_url);
+    });
+
+    // Update product model (_sku)
+    $('[id=sku_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'sku';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product name (post_title)
+    $('[id=name_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'title';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product shipping (estimated_shipping)
+    $('[id=shipping_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'estimated_shipping';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product price (_regular_price)
+    $('[id=price_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'regular_price';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product sale price (_sale_price)
+    $('[id=sale_price_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'sale_price';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+
+    // Update product flash price (flash_price)
+    $('[id=flash_price_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'flash_price';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product special expires (_sale_price_dates_to)
+    $('[id=special_expires_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'special_expires';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product recycling fee (handling_fee)
+    $('[id=recycling_fee_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'handling_fee';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product recycling bundle fee (handling_fee_bundle)
+    $('[id=recycling_bundles_fee_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'handling_fee_bundles';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product quantity (_stock)
+    $('[id=quantity_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'stock';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product manufacturer (yith_product_brand)
+    $('[id=manufacturer_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'manufacturer';
+        var prod = $(this).attr('prod');
+        var current_val = $('[prod=' + prod + '] > option.current-val').attr('current-val');
+        var new_val = $(this).val();
+        $('[prod=' + prod + '] > option.current-val').removeClass('current-val').removeAttr('current-val');
+        $('[prod=' + prod + '] > option[value=' + new_val + ']').addClass('current-val').attr('current-val', new_val);
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, current_val: current_val, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product in stock (_stock_status)
+    $('[id=in_stock_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'stock_status';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product sell online (_visibility)
+    $('[id=sell_online_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'visibility';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product in shopbot feed (in_shopbot_feed)
+    $('[id=in_shopbot_feed_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'in_shopbot_feed';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product upc (upc)
+    $('[id=upc_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'upc';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update product gtin (gtin)
+    $('[id=gtin_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'gtin';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+
+    // Update shopbot product price (shopbot_price)
+    $('[id=shopbot_price_update]').change(function(){
+        var plugin_url = $('.plugin-url').val();
+        var field = 'shopbot_price';
+        var prod = $(this).attr('prod');
+        var new_val = $(this).val();
+        $.post(plugin_url + 'quick_update_script.php', {field: field, prod: prod, new_val: new_val}, function(data){
+            console.log(data);
+        });
+    });
+})(jQuery);

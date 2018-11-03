@@ -1,0 +1,480 @@
+<input type="hidden" class="plugin-url" value="<?php echo site_url() . '/wp-content/plugins/gibbys-quick-update/'; ?>">
+<h1>Quick Update</h1>
+<?php
+    global $wpdb;
+
+    if($_POST['update_flash_sale'] && $_POST['gibbys_flash_sale']){
+        update_option('gibbys_flash_sale', $_POST['gibbys_flash_sale']);
+        $table = '<table cellspacing="5" cellpadding="5" border="1">';
+        $table .= '<tr><td>Product ID</td><td>Sale Price</td><td>Sale Date From</td><td>Sale Date To</td><td>Flash Price</td><td>Old Sale Price</td><td>Regular Price</td></tr>';
+        $action = '';
+        if($_POST['gibbys_flash_sale'] == 'on'){
+          $table .= '<tr><td colspan="7">FLASH ON</td></tr>';
+          $action = 'FLASH_ON';
+            $products = $wpdb->get_results("SELECT * FROM wp_posts WHERE post_type = 'product'"); // AND (ID = 21407)");
+
+            foreach($products as $product){
+                $sale_price = get_post_meta($product->ID, '_sale_price', true);
+                $flash_price = get_post_meta($product->ID, 'flash_price', true);
+
+                $option_name = 'old_sale_price_' . $product->ID;
+                $option_name_price_from_date = 'old_sale_price_from_date_' . $product->ID;
+                $option_name_price_to_date = 'old_sale_price_to_date_' . $product->ID;
+                $result = $wpdb->query("DELETE FROM wp_options WHERE option_name = '" . $option_name . "'");
+                $result = $wpdb->query("DELETE FROM wp_options WHERE option_name = '" . $option_name_price_from_date_temp . "'");
+                $result = $wpdb->query("DELETE FROM wp_options WHERE option_name = '" . $option_name_price_to_date_temp . "'");
+
+                $sale_price_dates_from = get_post_meta($product->ID, '_sale_price_dates_from', true);
+                $sale_price_dates_to = get_post_meta($product->ID, '_sale_price_dates_to', true);
+                if($flash_price != ''){
+                  update_option($option_name, $sale_price);
+                  update_option($option_name_price_from_date, $sale_price_dates_from);
+                  update_option($option_name_price_to_date, $sale_price_dates_to);
+                  update_post_meta($product->ID, '_sale_price', $flash_price);
+                  update_post_meta($product->ID, '_price', $flash_price);
+                }
+              $table .= '<tr><td>' . $product->ID . '</td><td>' . $sale_price . '</td><td>' . $sale_price_dates_from . '</td><td>' . $sale_price_dates_to . '</td><td>' . $flash_price . '</td><td></td><td></td></tr>';
+            }
+        }else if($_POST['gibbys_flash_sale'] == 'off'){
+          $table .= '<tr><td colspan="7">FLASH OFF</td></tr>';
+          $action = 'FLASH_OFF';
+            $products = $wpdb->get_results("SELECT * FROM wp_posts WHERE post_type = 'product'"); // AND (ID = 21407)");
+
+            foreach($products as $product){
+                $option_name = 'old_sale_price_' . $product->ID;
+                $option_name_price_from_date_temp = 'old_sale_price_from_date_' . $product->ID;
+                $option_name_price_from_date = get_option($option_name_price_from_date_temp);
+                $option_name_price_to_date_temp = 'old_sale_price_to_date_' . $product->ID;
+                $option_name_price_to_date = get_option($option_name_price_to_date_temp);
+                $old_sale_price = get_option($option_name); 
+          
+                $regular_price = get_post_meta($product->ID, '_regular_price', true);
+                $sale_price = get_post_meta($product->ID, '_sale_price', true);
+                $flash_price = get_post_meta($product->ID, 'flash_price', true);
+                if($old_sale_price && $old_sale_price != '') {
+                    update_post_meta($product->ID, '_sale_price', $old_sale_price);
+                    update_post_meta($product->ID, '_price', $old_sale_price);
+                    update_post_meta($product->ID, '_sale_price_dates_from', $option_name_price_from_date);
+                    update_post_meta($product->ID, '_sale_price_dates_to', $option_name_price_to_date);
+                } elseif($sale_price && $sale_price != '' && $flash_price == '') {
+                    update_post_meta($product->ID, '_price', $sale_price);
+                } else {
+                    update_post_meta($product->ID, '_price', $regular_price);
+                    $wpdb->delete('wp_postmeta', array('post_id' => $product->ID, 'meta_key' => '_sale_price'));
+                }
+                $result = $wpdb->query("DELETE FROM wp_options WHERE option_name = '" . $option_name . "'");
+                $result = $wpdb->query("DELETE FROM wp_options WHERE option_name = '" . $option_name_price_from_date_temp . "'");
+                $result = $wpdb->query("DELETE FROM wp_options WHERE option_name = '" . $option_name_price_to_date_temp . "'");
+                $table .= '<tr><td>' . $product->ID . '</td><td>' . $sale_price . '</td><td>' . $sale_price_dates_from . '</td><td>' . $sale_price_dates_to . '</td><td>' . $flash_price . '</td><td>' . $old_sale_price . '</td><td>' . $regular_price . '</td></tr>';
+                
+            }
+        }
+        $table .= '</table>';
+        this_log($table, $action);
+    }
+    
+    // Populate array with all manufacturers
+    $manufacturer_array = array();
+    $manufacturer_ids = array();
+    $manufacturer_id_name_links = array();
+    $q = $wpdb->get_results("SELECT * FROM wp_term_taxonomy WHERE taxonomy LIKE 'yith_product_brand'");
+    foreach($q as $manufacturer){
+      $manufacturer_id = $manufacturer->term_id;
+      $q = $wpdb->get_results("SELECT name FROM wp_terms WHERE term_id = '$manufacturer_id' ORDER BY name DESC");
+      foreach($q as $manufacturer){
+        $manufacturer_array[] = $manufacturer->name . '_' . $manufacturer_id;
+        $manufacturer_ids[] = $manufacturer_id;
+        $manufacturer_id_name_links[$manufacturer->name] = $manufacturer_id;
+      }
+    }
+    sort($manufacturer_array);
+
+    $paged = $_GET['paged'];
+
+    // Query to populate array with all products like term searched for
+    $choice = '';
+    if($_GET['search_q'] != ''){
+        $post_in = array();
+        $q = $wpdb->get_results("SELECT ID FROM wp_posts WHERE post_title LIKE '%" . $_GET['search_q'] . "%' ORDER BY post_title ASC");
+
+        foreach($q as $product){
+            $post_in[] = $product->ID;
+        }
+        $choice = $_GET['search_q'];
+    } elseif($_POST['search_q'] != ''){
+        $post_in = array();
+        $q = $wpdb->get_results("SELECT ID FROM wp_posts WHERE post_title LIKE '%" . $_POST['search_q'] . "%' ORDER BY post_title ASC");
+
+        foreach($q as $product){
+            $post_in[] = $product->ID;
+        }
+        $choice = $_POST['search_q'];
+    }
+
+    // Query to ony show products which belong to the brand selected in the dropdown
+    if($_POST['search_brand'] != '' || $_GET['search_brand'] != ''){
+      if(is_array($post_in)){
+        $post_in_temp = array();
+        foreach($post_in as $product){
+          $post_terms = wp_get_post_terms($product, 'yith_product_brand');
+          foreach($post_terms as $post_term){
+            $brand_id = $post_term->term_id;
+          }
+          if($_POST['search_brand'] != ''){
+            if($_POST['search_brand'] == $brand_id){
+              $post_in_temp[] = $product;
+            }
+          }else if($_GET['search_brand'] != ''){
+            if($_GET['search_brand'] == $brand_id){
+              $post_in_temp[] = $product;
+            }
+          }
+        }
+        $post_in = $post_in_temp;
+      }else{
+        $post_in = array();
+        $get_products = $wpdb->get_results("SELECT * FROM wp_posts WHERE post_type = 'product'");
+        foreach($get_products as $product){
+          //print_r($product);
+          $post_terms = wp_get_post_terms($product->ID, 'yith_product_brand');
+          foreach($post_terms as $post_term){
+            $brand_id = $post_term->term_id;
+          }
+          if($_POST['search_brand'] != ''){
+            if($_POST['search_brand'] == $brand_id){
+              $post_in_temp[] = $product->ID;
+            }
+          }else if($_GET['search_brand'] != ''){
+            if($_GET['search_brand'] == $brand_id){
+              $post_in_temp[] = $product->ID;
+            }
+          }
+        }
+        $post_in = $post_in_temp;
+      }
+    }
+
+    if($_POST['show_flash'] != '') {
+      $show_flash = (int)$_POST['show_flash'];
+      if($show_flash) {
+        if(is_array($post_in)) {
+            $temp_id_array = array();
+            foreach($post_in AS $post_id) {
+                $q = $wpdb->get_row("SELECT count(*) as ttl FROM wp_posts p, wp_postmeta pm WHERE p.ID = " . $post_id . " AND p.ID = pm.post_id AND pm.meta_key = 'flash_price' AND pm.meta_value > 0");
+                if($q->ttl == 1) {
+                  $temp_id_array[] = $post_id;
+                }
+            }
+            $post_in = $temp_id_array;
+        } else {
+          $post_in = array();
+          $q = $wpdb->get_results("SELECT p.ID FROM wp_posts p, wp_postmeta pm WHERE p.ID = pm.post_id AND pm.meta_key = 'flash_price' AND pm.meta_value > 0");
+          foreach($q as $product){
+            $post_in[] = $product->ID;
+          }
+        }
+      }
+    } elseif($_GET['show_flash'] != '') {
+      $show_flash = (int)$_GET['show_flash'];
+      if($show_flash) {
+        if(is_array($post_in)) {
+            $temp_id_array = array();
+            foreach($post_in AS $post_id) {
+                $q = $wpdb->get_row("SELECT count(*) as ttl FROM wp_posts p, wp_postmeta pm WHERE p.ID = " . $post_id . " AND p.ID = pm.post_id AND pm.meta_key = 'flash_price' AND pm.meta_value > 0");
+                if($q->ttl == 1) {
+                  $temp_id_array[] = $post_id;
+                }
+            }
+            $post_in = $temp_id_array;
+        } else {
+          $post_in = array();
+          $q = $wpdb->get_results("SELECT p.ID FROM wp_posts p, wp_postmeta pm WHERE p.ID = pm.post_id AND pm.meta_key = 'flash_price' AND pm.meta_value > 0");
+          foreach($q as $product){
+            $post_in[] = $product->ID;
+          }
+        }
+      }
+    }
+    if($_POST['results'] != ''){
+      $search_results = (int)$_POST['results'];
+    } elseif($_GET['results'] != ''){
+      $search_results = (int)$_GET['results'];
+    }
+    if(!is_numeric($search_results) OR $search_results < 50) {
+        $search_results = 50;
+    }
+//echo $search_results;
+    $args = array(
+        'post__in' => $post_in,
+        'posts_per_page' => $search_results,
+        'post_type' => 'product',
+        //'orderby' => 'post__in',
+        'orderby' => 'title',
+        'order' => 'ASC',
+        'paged' => $paged
+    );
+    $q = new WP_Query($args);
+
+    if($_POST['search_brand'] != ''){
+      $search_brand = $_POST['search_brand'];
+    }else if($_GET['search_brand'] != ''){
+      $search_brand = $_GET['search_brand'];
+    }
+
+    ?> <form action="<?php echo site_url() . '/wp-admin/admin.php?page=gibbys_quick_update'; ?>" method="POST" class="quick-update-search-form" style="float: right;">
+            <!-- <input type="hidden" name="page" value="gibbys_quick_update"> -->
+            <input type="hidden" value="<?php if($choice){ echo $choice; } ?>" name="search_q">
+            <select name="search_brand" style="display:none;">
+              <option value="">Brand</option>
+              <?php
+                  foreach($manufacturer_array as $manufacturer){
+                      $manufacturer = explode('_', $manufacturer);
+                      $manufacturer_name = $manufacturer[0];
+                      $manufacturer_id = $manufacturer[1];
+                      ?>
+                          <option value="<?php echo $manufacturer_id; ?>" <?php if($search_brand == $manufacturer_id){ echo 'selected="selected"'; } ?>><?php echo $manufacturer_name; ?></option>
+                      <?php
+                  }
+              ?>
+            </select>
+            <input type="hidden" value="<?php if($show_flash == 1){ echo $show_flash; }else{ echo 0; } ?>" name="show_flash">
+            Search Results per page: <select name="results" onchange="this.form.submit();">
+            <option <?php if($search_results == 50) { echo 'SELECTED'; } ?> value="50">50</option>
+            <option <?php if($search_results == 100) { echo 'SELECTED'; } ?> value="100">100</option>
+            <option <?php if($search_results == 200) { echo 'SELECTED'; } ?> value="200">200</option>
+            <option <?php if($search_results == 500) { echo 'SELECTED'; } ?> value="500">500</option>
+            <?php if($_GET['paged']){ ?>
+                <input type="hidden" name="paged" value="<?php echo $_GET['paged']; ?>">
+            <?php } ?>
+            <input class="button-primary quick-update-search-btn search-results-change" type="hidden" name="search_btn" value="Change">
+        </form>
+        <?php
+        //if($_SERVER['REMOTE_ADDR'] == '2.101.248.212') {
+            ?>
+
+        <form action="<?php echo site_url() . '/wp-admin/admin.php?page=gibbys_quick_update'; ?>" method="POST" class="quick-update-search-form" style="float: right; padding-right:10px;">
+            <!-- <input type="hidden" name="page" value="gibbys_quick_update"> -->
+            <input type="hidden" value="<?php if($choice){ echo $choice; } ?>" name="search_q">
+            <select name="search_brand" style="display:none;">
+              <option value="">Brand</option>
+              <?php
+                  foreach($manufacturer_array as $manufacturer){
+                      $manufacturer = explode('_', $manufacturer);
+                      $manufacturer_name = $manufacturer[0];
+                      $manufacturer_id = $manufacturer[1];
+                      ?>
+                          <option value="<?php echo $manufacturer_id; ?>" <?php if($search_brand == $manufacturer_id){ echo 'selected="selected"'; } ?>><?php echo $manufacturer_name; ?></option>
+                      <?php
+                  }
+              ?>
+            </select>
+            <input type="hidden" value="<?php if($search_results){ echo $search_results; }else{ echo 50; } ?>" name="results">
+            Products: <select name="show_flash" onchange="this.form.submit();">
+            <option <?php if($show_flash == 0) { echo 'SELECTED'; } ?> value="0">All</option>
+            <option <?php if($show_flash == 1) { echo 'SELECTED'; } ?> value="1">Flash</option>
+            <?php if($_GET['paged']){ ?>
+                <input type="hidden" name="paged" value="<?php echo $_GET['paged']; ?>">
+            <?php } ?>
+            <input class="button-primary quick-update-search-btn search-results-change" type="hidden" name="search_btn" value="Change">
+        </form>
+        <?php //} ?>
+        <form action="<?php echo site_url() . '/wp-admin/admin.php?page=gibbys_quick_update'; ?>" method="POST" class="quick-update-search-form">
+            <input type="text" value="<?php echo $choice; ?>" class="all-options" name="search_q" placeholder="Product Name..." onfocus="this.placeholder=''" onblur="this.placeholder='Product Name...'" autocomplete="off">
+            <select name="search_brand">
+              <option value="">Brand</option>
+              <?php
+                  foreach($manufacturer_array as $manufacturer){
+                      $manufacturer = explode('_', $manufacturer);
+                      $manufacturer_name = $manufacturer[0];
+                      $manufacturer_id = $manufacturer[1];
+                      ?>
+                          <option value="<?php echo $manufacturer_id; ?>" <?php if($search_brand == $manufacturer_id){ echo 'selected="selected"'; } ?>><?php echo $manufacturer_name; ?></option>
+                      <?php
+                  }
+              ?>
+            </select>
+            <input type="hidden" value="<?php if($search_results){ echo $search_results; }else{ echo 50; } ?>" name="results">
+            <input type="hidden" value="<?php if($show_flash == 1){ echo $show_flash; }else{ echo 0; } ?>" name="show_flash">
+            <input class="button-primary quick-update-search-btn" type="submit" name="search_btn" value="Search">
+            <!-- <input type="text" name="search_q" style="display: none;" autocomplete="off"> -->
+            <a href="<?php echo site_url() . '/wp-admin/admin.php?page=gibbys_quick_update'; ?>"><input class="button-primary" type="button" value="Reset"></a>
+        </form>
+        <form action="" method="post">
+            <?php
+                if(get_option('gibbys_flash_sale') == 'on'){
+                    $btn_text = 'Turn flash sale off';
+                    $flash_sale_new = 'off';
+                }else if(get_option('gibbys_flash_sale') == 'off'){
+                    $btn_text = 'Turn flash sale on';
+                    $flash_sale_new = 'on';
+                }else{
+                    $btn_text = 'Set flash sale';
+                    $flash_sale_new = 'on';
+                }
+            ?>
+            <input type="hidden" name="gibbys_flash_sale" value="<?php echo $flash_sale_new; ?>">
+            <input type="hidden" value="<?php if($choice){ echo $choice; } ?>" name="search_q">
+            <select name="search_brand" style="display:none;">
+              <option value="">Brand</option>
+              <?php
+                  foreach($manufacturer_array as $manufacturer){
+                      $manufacturer = explode('_', $manufacturer);
+                      $manufacturer_name = $manufacturer[0];
+                      $manufacturer_id = $manufacturer[1];
+                      ?>
+                          <option value="<?php echo $manufacturer_id; ?>" <?php if($search_brand == $manufacturer_id){ echo 'selected="selected"'; } ?>><?php echo $manufacturer_name; ?></option>
+                      <?php
+                  }
+              ?>
+            </select>
+            <input type="hidden" value="<?php if($search_results){ echo $search_results; }else{ echo 50; } ?>" name="results">
+            <input type="hidden" value="<?php if($show_flash == 1){ echo $show_flash; }else{ echo 0; } ?>" name="show_flash">
+            <input type="submit" class="button-primary" style="margin-bottom:20px;" name="update_flash_sale" value="<?php echo $btn_text; ?>">
+        </form>
+
+        <table class="widefat" style="width: 2000px;">
+            <thead>
+
+            <tr>
+                <th style="width: 200px;">Model</th>
+                <th style="width: 200px;">Name</th>
+                <th style="width:50px;">Shipping</th>
+                <th style="width:100px;">Regular</th>
+                <th style="width:100px;">Sale</th>
+                <th style="width:100px;">Hide Price</th>
+                <th style="width:120px;">Special Expires<br>(YYYY-MM-DD)</th>
+                <th style="width:100px;">Flash</th>
+                <th style="width:40px;">Recycle Fee</th>
+                <th style="width:40px;">Bundle Recycle Fee</th>
+                <th style="width:40px;">Quantity</th>
+                <th style="width:80px;">Manufacturer</th>
+                <th style="width:50px;">In Stock</th>
+                <th style="width:80px;">Sell Online</th>
+                <!-- <th>In Wishabi Feed</th>
+                <th>In Amazon Feed</th> -->
+                <th style="width:100px;">UPC</th>
+                <th style="width:100px;">GTIN</th>
+                <!-- <th>UPC</th>
+                <th>Amazon Price</th> -->
+            </tr>
+            </thead>
+            <tbody>
+                <?php
+                    if($q->have_posts()){
+                        while($q->have_posts()){
+                            $q->the_post();
+
+                            $id = get_the_id();
+                            $prod = get_post_meta($id);
+                            //print_r($prod);
+                            $tax_ids = $wpdb->get_results("SELECT term_taxonomy_id FROM wp_term_relationships WHERE object_id = '$id'");
+                            foreach($tax_ids as $tax_id){
+                                if(in_array($tax_id->term_taxonomy_id, $manufacturer_ids)){
+                                    $product_manufacturer = $tax_id->term_taxonomy_id;
+                                }
+                            }
+                            ?>
+                                <tr>
+                                    <td><input type="text" value="<?php echo $prod['_sku'][0]; ?>" class="regular-text" id="sku_update" prod="<?php echo $id; ?>"></td>
+                                    <td><input type="text" value="<?php the_title(); ?>" class="regular-text" id="name_update" prod="<?php echo $id; ?>"></td>
+                                    <td><input type="text" value="<?php echo $prod['estimated_shipping'][0]; ?>" class="regular-text" id="shipping_update" prod="<?php echo $id; ?>"></td>
+                                    <td><input type="text" value="<?php echo $prod['_regular_price'][0]; ?>" class="regular-text" id="price_update" prod="<?php echo $id; ?>"></td>
+                                    <?php if(get_option('gibbys_flash_sale') == 'off'){ ?>
+                                        <td><input type="text" value="<?php echo $prod['_sale_price'][0]; ?>" class="regular-text" id="sale_price_update" prod="<?php echo $id; ?>"></td>
+                                    <?php }else{ ?>
+                                        <td><?php echo $prod['_sale_price'][0]; ?></td>
+                                    <?php } ?>
+
+                                    <td><select id="hide_price_update" prod="<?php echo $id; ?>">
+                                        <option value="showPrice" <?php if($prod['_displayPrice'][0] == 'showPrice'){ echo 'selected="selected"'; } ?>>Show Price</option>
+                                        <option value="hidePrice" <?php if($prod['_displayPrice'][0] == 'hidePrice'){ echo 'selected="selected"'; } ?>>Hide Price</option>
+                                    </select></td>
+
+                                    <td><input type="text" value="<?php if($prod['_sale_price_dates_to'][0] !== ''){ echo date('Y-m-d', $prod['_sale_price_dates_to'][0]); } ?>" class="regular-text" id="special_expires_update" prod="<?php echo $id; ?>"></td>
+                                    <td><input type="text" value="<?php echo $prod['flash_price'][0]; ?>" class="regular-text" id="flash_price_update" prod="<?php echo $id; ?>"></td>
+                                    <td><input type="text" value="<?php echo $prod['handling_fee'][0]; ?>" class="regular-text" id="recycling_fee_update" prod="<?php echo $id; ?>"></td>
+                                    <td><input type="text" value="<?php echo $prod['handling_fee_bundles'][0]; ?>" class="regular-text" id="recycling_bundles_fee_update" prod="<?php echo $id; ?>"></td>
+                                    <td><input type="text" value="<?php echo $prod['_stock'][0]; ?>" class="regular-text" id="quantity_update" prod="<?php echo $id; ?>"></td>
+                                    <td>
+                                        <select id="manufacturer_update" prod="<?php echo $id; ?>">
+                                            <?php
+                                                foreach($manufacturer_array as $manufacturer){
+                                                    $manufacturer = explode('_', $manufacturer);
+                                                    $manufacturer_name = $manufacturer[0];
+                                                    $manufacturer_id = $manufacturer[1];
+                                                    ?>
+                                                        <option value="<?php echo $manufacturer_id; ?>" <?php if($manufacturer_id == $product_manufacturer){ ?> class="current-val" current-val="<?php echo $manufacturer_id_name_links[$manufacturer_name]; ?>" selected="selected" <?php } ?>><?php echo $manufacturer_name; ?></option>
+                                                    <?php
+                                                }
+                                            ?>
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <select id="in_stock_update" prod="<?php echo $id; ?>">
+                                            <option value="instock" <?php if($prod['_stock_status'][0] == 'instock'){ echo 'selected="selected"'; } ?>>In Stock</option>
+                                            <option value="outofstock" <?php if($prod['_stock_status'][0] == 'outofstock'){ echo 'selected="selected"'; } ?>>Out Of Stock</option>
+                                        </select>
+                                    </td>
+                                    <?php
+                                      $price_record = $wpdb->get_row("SELECT COUNT(*) TTL FROM wp_term_relationships WHERE object_id = " . $id . " AND term_taxonomy_id = 1109");
+                                    ?>
+                                    <td>
+                                        <select id="sell_online_update" prod="<?php echo $id; ?>">
+                                            <option value="1" <?php if($price_record->TTL == 0){ echo 'selected="selected"'; } ?>>Yes</option>
+                                            <option value="0" <?php if($price_record->TTL == 1){ echo 'selected="selected"'; } ?>>No</option>
+                                        </select>
+                                    </td>
+                                   <!--  <td>
+                                        <select id="upc_update" prod="<?php echo $id; ?>">
+                                            <option value="No" <?php if($prod['upc'][0] == 'No'){ echo 'selected="selected"'; } ?>>No</option>
+                                            <option value="Yes" <?php if($prod['upc'][0] == 'Yes'){ echo 'selected="selected"'; } ?>>Yes</option>
+                                        </select>
+                                    </td> -->
+                                    <td><input type="text" value="<?php echo $prod['upc'][0]; ?>" class="regular-text" id="upc_update" prod="<?php echo $id; ?>"></td>
+                                  <!--   <td>
+                                        <select id="gtin_update" prod="<?php echo $id; ?>">
+                                            <option value="No" <?php if($prod['gtin'][0] == 'No'){ echo 'selected="selected"'; } ?>>No</option>
+                                            <option value="Yes" <?php if($prod['gtin'][0] == 'Yes'){ echo 'selected="selected"'; } ?>>Yes</option>
+                                        </select>
+                                    </td> -->
+                                    <td><input type="text" value="<?php echo $prod['gtin'][0]; ?>" class="regular-text" id="gtin_update" prod="<?php echo $id; ?>"></td>
+                                </tr>
+                            <?php
+                        }
+                    }
+                ?>
+            </tbody>
+        </table>
+   <!--  <div style="display:none;" class="url-pagination"><?php echo site_url() . $_SERVER['REQUEST_URI']; ?></div> -->
+    <div style="display:none;" class="brand-pagination"><?php echo $search_brand; ?></div>
+    <div style="display:none;" class="search-pagination"><?php echo str_replace(' ', '+', $choice); ?></div>
+    <div style="display:none;" class="results-pagination"><?php echo $search_results; ?></div>
+    <div style="display:none;" class="show-flash-pagination"><?php echo $show_flash; ?></div>
+    <?php
+
+    $big = 999999999; // need an unlikely integer
+
+    echo '<div class="quick-update-pagination">' . paginate_links( array(
+    	'base' => str_replace( $big, '%#%', esc_url( get_pagenum_link( $big ) ) ),
+    	'format' => '?paged=%#%',
+    	'current' => max( 1, $paged ),
+    	'total' => $q->max_num_pages,
+        'show_all' => true
+    ) ) . '</div>';
+
+    ?>
+        <select id="quick_update_pagination"></select>
+    <?php
+
+    wp_reset_query();
+
+function this_log($message, $action = '') {
+$file = @fopen('../logs/' . time() . '_' . $action . '_log.html', 'a+');
+    $line = $message.'<br>';
+    @fwrite($file, $line);
+    @fclose($file);
+
+}
+
+
+?>

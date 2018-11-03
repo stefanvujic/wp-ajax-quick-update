@@ -1,0 +1,46 @@
+div.quick-update-pagination{
+    display: none;
+}
+select#quick_update_pagination{
+    margin-top: 50px;
+}
+input.regular-text{
+    width: 100%;
+}
+input.all-options{
+    padding: 5px;
+}
+input.button-primary.quick-update-search-btn{
+    margin-left: 20px;
+}
+input.all-options, input.button-primary{
+    vertical-align: middle;
+}
+form.quick-update-search-form{
+    padding: 20px 0;
+}
+
+.toplevel_page_gibbys_quick_update .widefat thead th {
+    border: none;
+}
+
+/* Field Sizes */
+#shipping_update, #flash_shipping_update {
+    width: 65px;
+}
+
+#price_update {
+    width: 80px;
+}
+
+#sale_price_update {
+    width: 90px;
+}
+
+#flash_price_update {
+    width: 80px;
+}
+
+#quantity_update, #recycling_fee_update, #recycling_bundles_fee_update {
+    width: 40px;
+}
