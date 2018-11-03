@@ -1,0 +1,1 @@
+wp-ajax-quick-update
